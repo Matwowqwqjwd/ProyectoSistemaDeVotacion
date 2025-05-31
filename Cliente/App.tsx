@@ -5,42 +5,54 @@ import AppNavigation from './app/navigation';
 import LoginScreen from './screens/LoginScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * Root component that handles session validation and global providers.
+ * Displays either the navigation stack or the login screen based on session state.
+ */
 export default function App() {
-  const [logueado, setLogueado] = useState(false);
-  const [mensajeLogout, setMensajeLogout] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [logoutMessage, setLogoutMessage] = useState('');
 
+  /**
+   * Verifies if a user session exists in local storage or AsyncStorage.
+   * Sets login state accordingly.
+   */
   useEffect(() => {
-    const verificarSesion = async () => {
-      if (Platform.OS === 'web') {
-        const usuario = localStorage.getItem('usuario');
-        if (usuario) setLogueado(true);
-      } else {
-        const usuario = await AsyncStorage.getItem('usuario');
-        if (usuario) setLogueado(true);
-      }
+    const checkSession = async () => {
+      const userData =
+        Platform.OS === 'web'
+          ? localStorage.getItem('usuario')
+          : await AsyncStorage.getItem('usuario');
+
+      if (userData) setIsLoggedIn(true);
     };
-    verificarSesion();
+
+    checkSession();
   }, []);
 
-  const cerrarSesion = () => {
-    setLogueado(false);
-    setMensajeLogout('🚪 Has cerrado sesión exitosamente');
-    setTimeout(() => setMensajeLogout(''), 3000);
+  /**
+   * Logs out the user by clearing login state and showing feedback message.
+   */
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLogoutMessage('🚪 You have successfully logged out');
+
+    setTimeout(() => setLogoutMessage(''), 3000);
   };
 
   return (
     <InventarioProvider>
-      <View style={{ flex: 1 }}>
-        {mensajeLogout !== '' && (
-          <View style={styles.flash}>
-            <Text style={styles.flashText}>{mensajeLogout}</Text>
+      <View style={styles.container}>
+        {logoutMessage !== '' && (
+          <View style={styles.flashMessage}>
+            <Text style={styles.flashMessageText}>{logoutMessage}</Text>
           </View>
         )}
 
-        {logueado ? (
-          <AppNavigation onLogout={cerrarSesion} />
+        {isLoggedIn ? (
+          <AppNavigation onLogout={handleLogout} />
         ) : (
-          <LoginScreen navigation={{ replace: () => setLogueado(true) }} />
+          <LoginScreen navigation={{ replace: () => setIsLoggedIn(true) }} />
         )}
       </View>
     </InventarioProvider>
@@ -48,7 +60,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  flash: {
+  container: {
+    flex: 1,
+  },
+  flashMessage: {
     backgroundColor: '#d4edda',
     padding: 10,
     borderRadius: 6,
@@ -56,7 +71,7 @@ const styles = StyleSheet.create({
     borderColor: '#c3e6cb',
     borderWidth: 1,
   },
-  flashText: {
+  flashMessageText: {
     color: '#155724',
     textAlign: 'center',
     fontWeight: 'bold',
