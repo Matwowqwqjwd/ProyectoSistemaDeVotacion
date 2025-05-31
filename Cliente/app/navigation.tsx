@@ -1,144 +1,216 @@
+/**
+ * Root navigation component for the voting app.
+ * Renders a bottom–tab navigator whose tabs vary by authenticated user role.
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform, TouchableOpacity, Text, StyleSheet } from 'react-native';
+
 import HomeScreen from '../screens/HomeScreen';
 import ProductScreen from '../screens/ProductScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
-import { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, TouchableOpacity, Text } from 'react-native';
-import PanelCandidatoScreen from '../screens/PanelCandidatoScreen';
-import PanelVotanteScreen from '../screens/PanelVotanteScreen';
-import PanelAdministrativoScreen from '../screens/PanelAdministrativoScreen';
-import PanelAdminScreen from '../screens/PanelAdminScreen';
-import CrearEleccionScreen from '../screens/CrearEleccionScreen';
-import EditarEleccionesScreen from '../screens/EditarEleccionScreen';
-import AgregarCandidatoScreen from '../screens/AgregarCandidatoScreen';
-import AgregarVotacionScreen from '../screens/AgregarVotacionScreen';
-import ResultadosVotacionesScreen from '../screens/ResultadosVotacionesScreen';
-import ListaCandidaturaScreen from '../screens/ListaCandidaturasScreen';
+import PanelCandidateScreen from '../screens/PanelCandidatoScreen';
+import PanelVoterScreen from '../screens/PanelVotanteScreen';
+import PanelAdministrativeScreen from '../screens/PanelAdministrativoScreen';
+import AdminDashboardScreen from '../screens/PanelAdminScreen';
+import CreateElectionScreen from '../screens/CrearEleccionScreen';
+import EditElectionScreen from '../screens/EditarEleccionScreen';
+import AddCandidateScreen from '../screens/AgregarCandidatoScreen';
+import VoteScreen from '../screens/AgregarVotacionScreen';
+import ElectionResultsScreen from '../screens/ResultadosVotacionesScreen';
+import CandidateListScreen from '../screens/ListaCandidaturasScreen';
+
+/* -------------------------------------------------------------------------- */
+/*                              Type Declarations                             */
+/* -------------------------------------------------------------------------- */
+
+type UserRole = 'ADMIN' | 'CANDIDATE' | 'VOTER' | 'ADMINISTRATIVE' | null;
+
+interface StoredUser {
+  role: UserRole;
+}
+
+interface NavigationProps {
+  /** Callback executed after local logout on native platforms. */
+  onLogout: () => void;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Helper Methods                               */
+/* -------------------------------------------------------------------------- */
+
+/** Retrieve the stored user object from local / async storage. */
+const fetchStoredUser = async (): Promise<StoredUser | null> => {
+  const userJson =
+    Platform.OS === 'web'
+      ? localStorage.getItem('user')
+      : await AsyncStorage.getItem('user');
+
+  return userJson ? (JSON.parse(userJson) as StoredUser) : null;
+};
+
+/** Clear the stored user object from local / async storage. */
+const clearStoredUser = async (): Promise<void> => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('user');
+  } else {
+    await AsyncStorage.removeItem('user');
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*                           Constants & Mappings                             */
+/* -------------------------------------------------------------------------- */
 
 const Tab = createBottomTabNavigator();
 
-export default function Navigation({ onLogout }: { onLogout: () => void }) {
-  const [rol, setRol] = useState<string | null>(null);
+/** Mapping between route labels and their icon names. */
+const ICON_BY_ROUTE: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Panel: 'home',
+  Productos: 'pricetags',
+  Perfil: 'person',
+  Inventario: 'cube',
+  Usuarios: 'people',
+  'Crear Eleccion': 'checkbox-outline',
+  'Lista Elecciones': 'create-outline',
+  'Asignar Candidato': 'add-circle-outline',
+  'Realizar Votacion': 'checkmark-circle-outline',
+  'Lista de candidaturas': 'list-outline',
+  Resultados: 'bar-chart-outline',
+};
 
+/* -------------------------------------------------------------------------- */
+/*                         Main Navigation Component                          */
+/* -------------------------------------------------------------------------- */
+
+export default function Navigation({ onLogout }: NavigationProps) {
+  const [userRole, setUserRole] = useState<UserRole>(null);
+
+  /* ------------------------------ Fetch role ----------------------------- */
   useEffect(() => {
-    const obtenerRol = async () => {
-      let usuarioJSON;
-
-      if (Platform.OS === 'web') {
-        usuarioJSON = localStorage.getItem('usuario');
-      } else {
-        usuarioJSON = await AsyncStorage.getItem('usuario');
-      }
-
-      if (usuarioJSON) {
-        const usuario = JSON.parse(usuarioJSON);
-        setRol(usuario.role);
-      }
-    };
-
-    obtenerRol();
+    (async () => {
+      const storedUser = await fetchStoredUser();
+      setUserRole(storedUser?.role ?? null);
+    })();
   }, []);
 
-  const headerRight = () => (
-    <TouchableOpacity
-      onPress={async () => {
-        const confirmar = Platform.OS === 'web'
-          ? window.confirm('¿Deseas salir de la aplicación?')
-          : true;
+  /* --------------------------- Logout handling --------------------------- */
+  const handleLogout = useCallback(async () => {
+    const shouldLogout =
+      Platform.OS === 'web'
+        ? window.confirm('Do you want to log out of the application?')
+        : true;
 
-        if (!confirmar) return;
+    if (!shouldLogout) return;
 
-        if (Platform.OS === 'web') {
-          localStorage.removeItem('usuario');
-          sessionStorage.setItem('logoutMessage', '🚪 Has cerrado sesión exitosamente');
-          window.location.reload();
-        } else {
-          await AsyncStorage.removeItem('usuario');
-          onLogout();
-        }
-      }}
-      style={{
-        marginRight: 18,
-        backgroundColor: '#e74c3c',
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        borderRadius: 22,
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: '#e74c3c',
-        shadowOpacity: 0.18,
-        shadowRadius: 6,
-        elevation: 4,
-      }}
-    >
-      <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Salir</Text>
-    </TouchableOpacity>
+    await clearStoredUser();
+
+    if (Platform.OS === 'web') {
+      sessionStorage.setItem('logoutMessage', '🚪 You have logged out successfully.');
+      window.location.reload();
+    } else {
+      onLogout();
+    }
+  }, [onLogout]);
+
+  const renderLogoutButton = useCallback(
+    () => (
+      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+        <Ionicons name="log-out-outline" size={18} color="#fff" style={styles.logoutIcon} />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+    ),
+    [handleLogout],
   );
 
+  /* ------------------------------- Render ------------------------------- */
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          tabBarIcon: ({ color, size }) => {
-            let iconName: keyof typeof Ionicons.glyphMap = 'help';
-            if (route.name === 'Panel') iconName = 'home';
-            else if (route.name === 'Productos') iconName = 'pricetags';
-            else if (route.name === 'Perfil') iconName = 'person';
-            else if (route.name === 'Inventario') iconName = 'cube';
-            else if (route.name === 'Usuarios') iconName = 'people';
-            else if (route.name === 'Crear Eleccion') iconName = 'checkbox-outline';
-            else if (route.name === 'Lista Elecciones') iconName = 'create-outline';
-            else if (route.name === 'Asignar Candidato') iconName = 'add-circle-outline';
-            else if (route.name === 'Realizar Votacion') iconName = 'checkmark-circle-outline';
-            else if (route.name === 'Lista de candidaturas') iconName = 'list-outline';
-            else if (route.name === 'Resulados') iconName = 'bar-chart-outline';
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          headerRight,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name={ICON_BY_ROUTE[route.name] ?? 'help'} size={size} color={color} />
+          ),
+          headerRight: renderLogoutButton,
         })}
       >
-        {/* <Tab.Screen name="Inicio" component={HomeScreen} />
-        <Tab.Screen name="Productos" component={ProductScreen} /> */}
-
+        {/* Universal tabs */}
+        {/* Uncomment if you ever need Home/Product/Inventory again */}
+        {/* <Tab.Screen name="Inicio" component={HomeScreen} /> */}
+        {/* <Tab.Screen name="Productos" component={ProductScreen} /> */}
         {/* <Tab.Screen name="Inventario" component={InventoryScreen} /> */}
-        {rol === 'ADMIN' && (
+
+        {/* Role-specific tabs */}
+        {userRole === 'ADMIN' && (
           <>
-            <Tab.Screen name="Panel" component={PanelAdminScreen} />
+            <Tab.Screen name="Panel" component={AdminDashboardScreen} />
             <Tab.Screen name="Usuarios" component={UserManagementScreen} />
-            <Tab.Screen name="Crear Eleccion" component={CrearEleccionScreen} />
-            <Tab.Screen name="Lista Elecciones" component={EditarEleccionesScreen} />
-            <Tab.Screen name="Asignar Candidato" component={AgregarCandidatoScreen} />
-            <Tab.Screen name="Lista de candidaturas" component={ListaCandidaturaScreen} />
+            <Tab.Screen name="Crear Eleccion" component={CreateElectionScreen} />
+            <Tab.Screen name="Lista Elecciones" component={EditElectionScreen} />
+            <Tab.Screen name="Asignar Candidato" component={AddCandidateScreen} />
+            <Tab.Screen name="Lista de candidaturas" component={CandidateListScreen} />
           </>
         )}
-        {rol === 'CANDIDATO' && (
+
+        {userRole === 'CANDIDATE' && (
           <>
-            <Tab.Screen name="Panel" component={PanelCandidatoScreen} />
-            <Tab.Screen name="Lista de candidaturas" component={ListaCandidaturaScreen} />
+            <Tab.Screen name="Panel" component={PanelCandidateScreen} />
+            <Tab.Screen name="Lista de candidaturas" component={CandidateListScreen} />
           </>
         )}
-        {rol === 'VOTANTE' && (
+
+        {userRole === 'VOTER' && (
           <>
-            <Tab.Screen name="Panel" component={PanelVotanteScreen} />
-            <Tab.Screen name="Realizar Votacion" component={AgregarVotacionScreen} />
-            
+            <Tab.Screen name="Panel" component={PanelVoterScreen} />
+            <Tab.Screen name="Realizar Votacion" component={VoteScreen} />
           </>
         )}
-        {rol === 'ADMINISTRATIVO' && (
+
+        {userRole === 'ADMINISTRATIVE' && (
           <>
-            <Tab.Screen name="Panel" component={PanelAdministrativoScreen} />
-            <Tab.Screen name="Lista de candidaturas" component={ListaCandidaturaScreen} />
+            <Tab.Screen name="Panel" component={PanelAdministrativeScreen} />
+            <Tab.Screen name="Lista de candidaturas" component={CandidateListScreen} />
           </>
         )}
-        <Tab.Screen name="Resulados" component={ResultadosVotacionesScreen} />
+
+        {/* Always visible */}
+        <Tab.Screen name="Resultados" component={ElectionResultsScreen} />
         <Tab.Screen name="Perfil" component={ProfileScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                   Styles                                   */
+/* -------------------------------------------------------------------------- */
+
+const styles = StyleSheet.create({
+  logoutButton: {
+    marginRight: 18,
+    backgroundColor: '#e74c3c',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#e74c3c',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  logoutIcon: {
+    marginRight: 6,
+  },
+  logoutText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+});
